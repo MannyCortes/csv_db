@@ -1,0 +1,1 @@
+# handles python logic formatting, checking for empty cells
