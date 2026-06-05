@@ -1,0 +1,8 @@
+Transaction_ID,Date,Customer_Name,Item_Purchased,Quantity,Unit_Price,Total_Amount,Status
+10001,2026-06-04,Acme Corp,Office Chairs,5,150.00,750.00,Paid
+10002,2026-06-04,Globex,Standing Desk,2,300.00,600.00,Paid
+10003,,Initech,Staplers,50,15.00,750.00,Pending
+10004,2026-06-04,Umbrella Corp,Monitors,10,250.00,2500.00,Paid
+10002,2026-06-04,Globex,Standing Desk,2,300.00,600.00,Paid
+10005,2026-06-05,Stark Ind,Whiteboards,3,200.00,PENDING,Pending
+10006,2026-06-05,Wayne Tech,Projector,1,850.00,850.00,Paid
