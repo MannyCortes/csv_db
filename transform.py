@@ -12,6 +12,7 @@ chunk_size = 10000
 def file_type_check(file_path):
     try:
         file_type = puremagic.from_file(file_path)
+        #if headers are missing, pure returns txt
         if file_type in [".csv", ".txt"]: 
             logger.info("File type check successful for file: %s, file type: %s", file_path, file_type)
             process_csv(file_path)
