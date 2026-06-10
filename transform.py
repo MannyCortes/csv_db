@@ -4,6 +4,7 @@ import pandas as pd
 import pandas.errors as pd_err 
 import puremagic 
 import chardet
+import re
 from datetime import datetime
 #configure the logger and file directory and what information to Log
 logging.basicConfig(filename="pipeline.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -62,32 +63,52 @@ def csv_df_check(df):
     clean_list = []
     error_list = []
     #None is caught since we replaced missing values with None
+    r_date = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+    r_int = re.compile(r"^\d+$")
+    r_float = re.compile(r"^\d+(\.\d{1,2})?$")
+    r_status = re.compile(r"^(Completed|Pending)$")
+    tuple_list = [("Transaction_ID", r_int, "Invalid Transaction Id"), ("Date", r_date, "Invalid Date Format"), 
+        ("Quantity", r_float, "Invalid Quantity"), ("Unit_Price", r_float, "Invalid Unit Price"), 
+        ("Total_Amount", r_float, "Invalid Transaction Total"), ("Status", r_status, "Status is not Pending/Complete"), 
+        ("Customer_Name", None, "Customer name invalid format"), ("Item_Purchased", None, "Item purchased invalid format")]
+    #leaving patterns as raw strings makes the cpu pause and transalte every row
+    rule_dict = {}
+    for key, pattern, comment in tuple_list:
+        rule_dict[key] = [pattern, comment]
     for row in df:
-        if row.get("Transaction_ID") is None: 
-            row["Error"] = "Missing Transaction_ID"
-            row["Timestamp"] = time 
-            error_list.append(row) 
-            continue
-        if row.get("Date") is None:
-            row["Error"] = "Missing Date"
-            row["Timestamp"] = time
+        #grab our complied pattern and run.match if error 
+        if not rule_dict.get("Transaction_ID")[0].match(str(row.get("Transaction_ID"))):
+            row["Error"] = rule_dict.get("Transaction_ID")[1]
             error_list.append(row)
             continue
-        if row.get("Total_Amount") is None:
-            row["Error"] = "Missing Total_Amount"
-            row["Timestamp"] = time
+        if not rule_dict.get("Date")[0].match(str(row.get("Date"))):
+            row["Error"] = rule_dict.get("Date")[1]
+            error_list.append(row)
+            continue
+        if not rule_dict.get("Quantity")[0].match(str(row.get("Quantity"))):
+            row["Error"] = rule_dict.get("Quantity")[1]
+            error_list.append(row)
+            continue
+        if not rule_dict.get("Unit_Price")[0].match(str(row.get("Unit_Price"))):
+            row["Error"] = rule_dict.get("Unit_Price")[1]
+            error_list.append(row)
+            continue
+        if not rule_dict.get("Total_Amount")[0].match(str(row.get("Total_Amount"))):
+            row["Error"] = rule_dict.get("Total_Amount")[1]
+            error_list.append(row)
+            continue
+        if not rule_dict.get("Status")[0].match(str(row.get("Status"))):
+            row["Error"] = rule_dict.get("Status")[1]
             error_list.append(row)
             continue
         try:    row["Total_Amount"] = float(row["Total_Amount"]) 
         except (ValueError, TypeError):
             row["Error"] = "Invalid Total_Amount"
-            row["Timestamp"] = time
             error_list.append(row) 
             continue
         try:  row["Quantity"] = int(row["Quantity"])
         except (ValueError, TypeError):
             row["Error"] = "Invalid Quantity"
-            row["Timestamp"] = time
             error_list.append(row)
             continue
         clean_list.append(row)
@@ -106,6 +127,7 @@ def decode_csv(file_path):
         usecols = ["Transaction_ID", "Date", "Customer_Name", "Item_Purchased", "Quantity", "Unit_Price", "Total_Amount", "Status"]
         #only allow chardet_result to read a chunk of the file encoding into memory 
         chunk_size = 1024
+        #detects the f.read(chunksize)
         chardet_result = chardet.detect(f.read(chunk_size))
         encoding = chardet_result["encoding"]
         try:
