@@ -10,7 +10,6 @@ logging.basicConfig(filename="pipeline.log", level=logging.INFO, format="%(ascti
 logger = logging.getLogger(__name__)
 
 file_path = r"C:\Users\manny\OneDrive\Desktop\pdf_db\practice.csv"
-chunk_size = 10000
 
 def file_type_check(file_path):
     try:
@@ -29,6 +28,8 @@ def file_type_check(file_path):
         logger.error("An error occurred: %s", e)
 
 def process_csv(file_path):
+    '''Reads a CSV file, checks for data quality issues, and returns a list of clean records.
+    If data quality issues are found, they are logged and the bad records are saved to a separate CSV file for review.'''
     try:
         #if no header use the names parameter to provide column names, if header is present use header=0 to read the first row as column names
         #use_coles is a param for pandas to read, contains our column names
@@ -40,14 +41,16 @@ def process_csv(file_path):
         csv_dict = csv_data.to_dict(orient="records")
         logger.info("CSV data processed successfully for file: %s", file_path)
         #turns csv_dict into a list of dicts 
-        clean_list = csv_df_check(csv_dict)
-        return clean_list
+        clean_list = csv_df_check(csv_dict) 
+        if clean_list: return clean_list 
+        else: return None
         #read_csv automatically manages iterating row ids, we can ovverried thisusing index_col="id"
         # if no header in csv file use names parameter'
     except UnicodeDecodeError: 
+        #may need editing
         logger.error("File encoding is not supported for: %s", file_path)
         csv_dict = decode_csv(file_path)
-        if csv_dict: clean_list = csv_df_check(csv_dict)
+        if csv_dict: clean_list = csv_df_check(csv_dict) 
         return clean_list
     except pd_err.ParserError:  logger.error("Parsing error for file: %s, check the csv format and delimiters", file_path)
     except FileNotFoundError:   logger.error("File not found for file: %s", file_path)
@@ -88,13 +91,12 @@ def csv_df_check(df):
             error_list.append(row)
             continue
         clean_list.append(row)
-        if len(error_list) > 0:
-            bad_df = pd.DataFrame(error_list)
+    if len(error_list) > 0:
+        bad_df = pd.DataFrame(error_list)
             #pd automitcally creates our headers using dict keys
-
-            bad_df.to_csv(f"bad_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
+        bad_df.to_csv(f"bad_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
             #creates a csv file with the bad data
-            logger.warning("Data quality issues found in file: %s, %d rows with errors. See bad_data_%s.csv for details.", file_path, len(error_list), datetime.now().strftime('%Y%m%d_%H%M%S'))
+        logger.warning("Data quality issues found in file: %s, %d rows with errors. See bad_data_%s.csv for details.", file_path, len(error_list), datetime.now().strftime('%Y%m%d_%H%M%S'))
     return clean_list
 
 def decode_csv(file_path):
@@ -102,6 +104,8 @@ def decode_csv(file_path):
         #use chardet library to detect encoding of file 
         #read the file then detect the encoding
         usecols = ["Transaction_ID", "Date", "Customer_Name", "Item_Purchased", "Quantity", "Unit_Price", "Total_Amount", "Status"]
+        #only allow chardet_result to read a chunk of the file encoding into memory 
+        chunk_size = 1024
         chardet_result = chardet.detect(f.read(chunk_size))
         encoding = chardet_result["encoding"]
         try:
@@ -115,12 +119,3 @@ def decode_csv(file_path):
             logger.warning("Failed to decode file: %s with detected encoding: %s", file_path, encoding)
         except Exception as e:
             logger.error("Unexpected Error in decode_csv module %s", e)
-
-
-def main():
-    # example  
-    if file_type_check(file_path):
-        clean_data = process_csv(file_path)
-        print(f"Clean data: {clean_data}")
-        
-if __name__ == "__main__":    main()
