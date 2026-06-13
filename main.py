@@ -3,7 +3,7 @@ import transform
 import load
 
 def main():
-    file_path = r"C:\Users\manny\OneDrive\Desktop\pdf_db\pressure_test.csv"
+    file_path = r"C:\Users\manny\OneDrive\Desktop\pdf_db\pressure_test10k.csv"
     if transform.file_type_check(file_path): 
         try:
             csv_list = transform.process_csv(file_path)

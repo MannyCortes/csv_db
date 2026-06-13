@@ -8,6 +8,7 @@ import re
 from datetime import datetime
 #configure the logger and file directory and what information to Log
 logging.basicConfig(filename="pipeline.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
 logger = logging.getLogger(__name__)
 
 file_path = r"C:\Users\manny\OneDrive\Desktop\pdf_db\practice.csv"
@@ -72,11 +73,12 @@ def csv_df_check(df):
         ("Total_Amount", r_float, "Invalid Transaction Total"), ("Status", r_status, "Status is not Pending/Complete"), 
         ("Customer_Name", None, "Customer name invalid format"), ("Item_Purchased", None, "Item purchased invalid format")]
     #leaving patterns as raw strings makes the cpu pause and transalte every row
+    #the pattern is already loaded into memory
     rule_dict = {}
     for key, pattern, comment in tuple_list:
         rule_dict[key] = [pattern, comment]
     for row in df:
-        #grab our complied pattern and run.match if error 
+        #rule_dict is our complied pattern and run.match on our pandas dataframe.
         if not rule_dict.get("Transaction_ID")[0].match(str(row.get("Transaction_ID"))):
             row["Error"] = rule_dict.get("Transaction_ID")[1]
             error_list.append(row)
@@ -105,6 +107,11 @@ def csv_df_check(df):
         except (ValueError, TypeError):
             row["Error"] = "Invalid Total_Amount"
             error_list.append(row) 
+            continue
+        try: row["Unit_Price"] = float(row["Unit_Price"])
+        except (ValueError, TypeError):
+            row["Error"] =  "Could not conver unit price into a float"
+            error_list.append(row)
             continue
         try:  row["Quantity"] = int(row["Quantity"])
         except (ValueError, TypeError):

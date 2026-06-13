@@ -3,6 +3,7 @@ from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, timezone
 import logging
+import pandas as pd
 import json
 
 Base = declarative_base()
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 class local_database(Base): 
     __tablename__ = 'local_database'
     id = Column(Integer, primary_key=True, unique=True)
-    transaction_id = Column(Integer)
+    transaction_id = Column(String, unique=True)
     date = Column(String)
     customer_name = Column(String)
     item = Column(String)
@@ -25,6 +26,7 @@ class local_database(Base):
 def process(payload, session):
     batches = [payload[i:i + 1000] for i in range(0, len(payload), 1000)]
     #batches increments every 1000, between i and len(payload)
+    master_bad_data = []
     for batch in batches:
         #this looks like O(n^2) but is actually O(n) due to a lack of comparison but rather sizing
         try:
@@ -37,10 +39,16 @@ def process(payload, session):
             #clear out the session
             session.rollback()  
             #what do we do for failed 
-            process_troubleshoot(batch, session)
-            logger.warning(f"Error creating database entry for transaction {sub['Transaction_ID']}: {e}")
-    logging.info(f"Payload processed and commited to databse, unsuccessful transactions will be logged in the troubleshoot log")
-
+            bad_data = process_troubleshoot(batch, session)
+            #returns a dict of flagged and skipped entries
+            master_bad_data.append(bad_data)
+    logging.info(f"Payload processed and commited to database, unsuccessful transactions will be logged in the troubleshoot log")
+    if len(master_bad_data) > 0:
+        #create our file/ generate a filename with timestamp 
+        df = pd.DataFrame(master_bad_data)
+        df.to_csv(f"db_troubleshoot_csv_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        logger.warning(f"Errors occured during runtime reference db_troube_csv for bad entries")
+ 
 def process_troubleshoot(batch, session):
     #this approach is required, sql alchamey deems any data queud for the engine that throws an error
     # is bad data and rollback is required. Isolating the error and submitting 1 by 1 is efficient.
@@ -54,16 +62,8 @@ def process_troubleshoot(batch, session):
             session.rollback()
             dict["Error"] = str(e)
             bad_data.append(dict)
-    if len(bad_data) > 0:
-        #create our file/ generate a filename with timestamp 
-        filename = f"troubleshoot_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
-        with open(filename, "w") as f:
-            for item in bad_data:
-                #json dumps converts dict to string for json
-                json_string = json.dumps(item)
-                f.write(json_string + "\n")
-        length = str(len(bad_data))
-        logger.info("Troubleshooting log created with %s entries: %s", length, filename)
+            continue
+    return bad_data
 
 
 def initialize_db():
