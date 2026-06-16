@@ -5,31 +5,35 @@ import pandas.errors as pd_err
 import puremagic 
 import chardet
 import re
+from fastapi import FastAPI , UploadFile
 from datetime import datetime
 #configure the logger and file directory and what information to Log
 logging.basicConfig(filename="pipeline.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 logger = logging.getLogger(__name__)
 
-file_path = r"C:\Users\manny\OneDrive\Desktop\pdf_db\practice.csv"
 
-def file_type_check(file_path):
+def file_type_check(file):
     try:
-        file_type = puremagic.from_file(file_path)
+        
         #if headers are missing, pure returns txt
+        header = file.read(2048)
+        #read the first few bytes
+        file_type = puremagic.from_string(file)
         if file_type in [".csv", ".txt"]: 
-            logger.info("File type check successful for file: %s, file type: %s", file_path, file_type)
+            file.seek(0)
+            logger.info("File type check successful for file: %s, file type: %s", file, file_type)
             return True
     except FileNotFoundError:
-        logger.error("File not found for file: %s", file_path)
+        logger.error("File not found for file: %s", file)
     except puremagic.PureValueError:
-        logger.warning("File is empty: %s", file_path)
+        logger.warning("File is empty: %s", file)
     except puremagic.PureError:
-        logger.error("Could not determine file type for: %s", file_path)
+        logger.error("Could not determine file type for: %s", file)
     except Exception as e:
         logger.error("An error occurred: %s", e)
 
-def process_csv(file_path):
+def process_csv(file):
     '''Reads a CSV file, checks for data quality issues, and returns a list of clean records.
     If data quality issues are found, they are logged and the bad records are saved to a separate CSV file for review.'''
     try:
@@ -37,11 +41,11 @@ def process_csv(file_path):
         #use_coles is a param for pandas to read, contains our column names
         #if needed we can also chunk our pd.read_csv to manage memory for large csv files, but for now we will read the whole file at once
         usecols = ["Transaction_ID", "Date", "Customer_Name", "Item_Purchased", "Quantity", "Unit_Price", "Total_Amount", "Status"]
-        csv_data = pd.read_csv(file_path, usecols=usecols)
+        csv_data = pd.read_csv(file, usecols=usecols)
         csv_data = csv_data.where(pd.notnull(csv_data), None)
         #tells pandas to keep all cells that are notnull if it is null replace to None 
         csv_dict = csv_data.to_dict(orient="records")
-        logger.info("CSV data processed successfully for file: %s", file_path)
+        logger.info("CSV data processed successfully for file")
         #turns csv_dict into a list of dicts 
         clean_list = csv_df_check(csv_dict) 
         if clean_list: return clean_list 
@@ -49,15 +53,17 @@ def process_csv(file_path):
         #read_csv automatically manages iterating row ids, we can ovverried thisusing index_col="id"
         # if no header in csv file use names parameter'
     except UnicodeDecodeError: 
-        #may need editing
-        logger.error("File encoding is not supported for: %s", file_path)
-        csv_dict = decode_csv(file_path)
-        if csv_dict: clean_list = csv_df_check(csv_dict) 
-        return clean_list
-    except pd_err.ParserError:  logger.error("Parsing error for file: %s, check the csv format and delimiters", file_path)
-    except FileNotFoundError:   logger.error("File not found for file: %s", file_path)
-    except ValueError:  logger.error("Invalid parameters for reading CSV file: %s", file_path)
-    except Exception as e: logger.error("An error occurred while processing CSV file: %s, error: %s", file_path, e)
+        logger.info("Error Decoding File")
+        #reset cursor
+        file.seek(0)
+        csv_dict = decode_csv(file)
+        clean_list = csv_df_check(csv_dict)
+        if clean_list: return clean_list
+        else: return None 
+    except pd_err.ParserError:  logger.error("Parsing error for file: %s, check the csv format and delimiters", file)
+    except FileNotFoundError:   logger.error("File not found for file: %s", file)
+    except ValueError:  logger.error("Invalid parameters for reading CSV file: %s", file)
+    except Exception as e: logger.error("An error occurred while processing CSV file: %s, error: %s", file, e)
 
 def csv_df_check(df):
     time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -124,27 +130,28 @@ def csv_df_check(df):
             #pd automitcally creates our headers using dict keys
         bad_df.to_csv(f"bad_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
             #creates a csv file with the bad data
-        logger.warning("Data quality issues found in file: %s, %d rows with errors. See bad_data_%s.csv for details.", file_path, len(error_list), datetime.now().strftime('%Y%m%d_%H%M%S'))
+        logger.warning("Data quality issues found in file: %d rows with errors. See bad_data_%s.csv for details.", len(error_list), datetime.now().strftime('%Y%m%d_%H%M%S'))
     return clean_list
 
-def decode_csv(file_path):
-    with open(file_path, "rb") as f:
-        #use chardet library to detect encoding of file 
-        #read the file then detect the encoding
-        usecols = ["Transaction_ID", "Date", "Customer_Name", "Item_Purchased", "Quantity", "Unit_Price", "Total_Amount", "Status"]
-        #only allow chardet_result to read a chunk of the file encoding into memory 
-        chunk_size = 1024
-        #detects the f.read(chunksize)
-        chardet_result = chardet.detect(f.read(chunk_size))
-        encoding = chardet_result["encoding"]
-        try:
-            #use pd to read the csv file and load it into memory
-            csv_data = pd.read_csv(file_path, encoding=encoding, usecols=usecols)
-            #replace any null values with None and then convert the dataframe to a list of dicts
-            csv_data = csv_data.where(pd.notnull(csv_data), None)
-            csv_dict = csv_data.to_dict(orient="records")
-            return csv_dict
-        except UnicodeDecodeError:
-            logger.warning("Failed to decode file: %s with detected encoding: %s", file_path, encoding)
-        except Exception as e:
-            logger.error("Unexpected Error in decode_csv module %s", e)
+def decode_csv(file):
+    #use chardet library to detect encoding of file 
+    #red the file then detect the encoding
+    usecols = ["Transaction_ID", "Date", "Customer_Name", "Item_Purchased", "Quantity", "Unit_Price", "Total_Amount", "Status"]
+    #only allow chardet_result to read a chunk of the file encoding into memory 
+    chunk_size = 1024
+    #detects the f.read(chunksize)
+    chardet_result = chardet.detect(file.read(chunk_size))
+    encoding = chardet_result["encoding"]
+    #reset cursor from fread
+    file.seek(0)
+    try:
+        #use pd to read the csv file and load it into memory
+        csv_data = pd.read_csv(file, encoding=encoding, usecols=usecols)
+        #replace any null values with None and then convert the dataframe to a list of dicts
+        csv_data = csv_data.where(pd.notnull(csv_data), None)
+        csv_dict = csv_data.to_dict(orient="records")
+        return csv_dict
+    except UnicodeDecodeError:
+        logger.warning("Failed to decode file with detected encoding: %s", encoding)
+    except Exception as e:
+        logger.error("Unexpected Error in decode_csv module %s", e)
