@@ -13,7 +13,7 @@ app = FastAPI()
 @app.post("/upload") #POST is when a user is providing the server with a file
 #File as a parameter tells python to search for things other than a json
 async def main(file: UploadFile = File(...)): #async optional if await method is needed 
-    if transform.file_type_check(file): 
+    if transform.file_type_check(file.file): 
         try:
             #file is now wrapped in an object pandas doesnt recognize, pull file our using.file attribute
             csv_list = transform.process_csv(file.file)
