@@ -2,7 +2,6 @@
 import logging
 import pandas as pd
 import pandas.errors as pd_err 
-import puremagic 
 import chardet
 import re
 from datetime import datetime
@@ -18,17 +17,14 @@ def file_type_check(file, filename):
         #if headers are missing, pure returns txt
         header = file.read(2048)
         #read the first few bytes
-        file_type = puremagic.from_string(file)
-        if file_type in [".csv", ".txt"]: 
+        filename = filename.lower() 
+        #csv and txt are placed in a typle
+        if filename.endswith((".csv", ".txt ")): 
             file.seek(0)
-            logger.info("File type check successful for file: %s, file type: %s", filename, file_type)
+            logger.info("File type check successful for file: %s, file type: %s", filename)
             return True
     except FileNotFoundError:
         logger.error("File not found for file: %s", filename)
-    except puremagic.PureValueError:
-        logger.warning("File is empty: %s", filename)
-    except puremagic.PureError:
-        logger.error("Could not determine file type for: %s", filename )
     except Exception as e:
         logger.error("An error occurred: %s", e)
 
