@@ -5,7 +5,6 @@ import pandas.errors as pd_err
 import puremagic 
 import chardet
 import re
-from fastapi import FastAPI , UploadFile
 from datetime import datetime
 #configure the logger and file directory and what information to Log
 logging.basicConfig(filename="pipeline.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -13,7 +12,7 @@ logging.basicConfig(filename="pipeline.log", level=logging.INFO, format="%(ascti
 logger = logging.getLogger(__name__)
 
 
-def file_type_check(file):
+def file_type_check(file, filename):
     try:
         
         #if headers are missing, pure returns txt
@@ -22,18 +21,18 @@ def file_type_check(file):
         file_type = puremagic.from_string(file)
         if file_type in [".csv", ".txt"]: 
             file.seek(0)
-            logger.info("File type check successful for file: %s, file type: %s", file, file_type)
+            logger.info("File type check successful for file: %s, file type: %s", filename, file_type)
             return True
     except FileNotFoundError:
-        logger.error("File not found for file: %s", file)
+        logger.error("File not found for file: %s", filename)
     except puremagic.PureValueError:
-        logger.warning("File is empty: %s", file)
+        logger.warning("File is empty: %s", filename)
     except puremagic.PureError:
-        logger.error("Could not determine file type for: %s", file)
+        logger.error("Could not determine file type for: %s", filename )
     except Exception as e:
         logger.error("An error occurred: %s", e)
 
-def process_csv(file):
+def process_csv(file, filename):
     '''Reads a CSV file, checks for data quality issues, and returns a list of clean records.
     If data quality issues are found, they are logged and the bad records are saved to a separate CSV file for review.'''
     try:
@@ -56,14 +55,14 @@ def process_csv(file):
         logger.info("Error Decoding File")
         #reset cursor
         file.seek(0)
-        csv_dict = decode_csv(file)
+        csv_dict = decode_csv(file, filename)
         clean_list = csv_df_check(csv_dict)
         if clean_list: return clean_list
         else: return None 
-    except pd_err.ParserError:  logger.error("Parsing error for file: %s, check the csv format and delimiters", file)
-    except FileNotFoundError:   logger.error("File not found for file: %s", file)
-    except ValueError:  logger.error("Invalid parameters for reading CSV file: %s", file)
-    except Exception as e: logger.error("An error occurred while processing CSV file: %s, error: %s", file, e)
+    except pd_err.ParserError:  logger.error("Parsing error for file: %s, check the csv format and delimiters", filename)
+    except FileNotFoundError:   logger.error("File not found for file: %s", filename)
+    except ValueError:  logger.error("Invalid parameters for reading CSV file: %s", filename)
+    except Exception as e: logger.error("An error occurred while processing CSV file: %s, error: %s", filename, e)
 
 def csv_df_check(df):
     time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -133,7 +132,7 @@ def csv_df_check(df):
         logger.warning("Data quality issues found in file: %d rows with errors. See bad_data_%s.csv for details.", len(error_list), datetime.now().strftime('%Y%m%d_%H%M%S'))
     return clean_list
 
-def decode_csv(file):
+def decode_csv(file, filename):
     #use chardet library to detect encoding of file 
     #red the file then detect the encoding
     usecols = ["Transaction_ID", "Date", "Customer_Name", "Item_Purchased", "Quantity", "Unit_Price", "Total_Amount", "Status"]
@@ -152,6 +151,6 @@ def decode_csv(file):
         csv_dict = csv_data.to_dict(orient="records")
         return csv_dict
     except UnicodeDecodeError:
-        logger.warning("Failed to decode file with detected encoding: %s", encoding)
+        logger.warning("Failed to decode file with detected encoding: %s file: %s", encoding, filename)
     except Exception as e:
         logger.error("Unexpected Error in decode_csv module %s", e)
