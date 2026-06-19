@@ -19,7 +19,7 @@ def file_type_check(file, filename):
         #read the first few bytes
         filename = filename.lower() 
         #csv and txt are placed in a typle
-        if filename.endswith((".csv", ".txt ")): 
+        if filename.endswith((".csv", ".txt")): 
             file.seek(0)
             logger.info("File type check successful for file: %s, file type: %s", filename)
             return True
