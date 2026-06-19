@@ -21,7 +21,7 @@ def file_type_check(file, filename):
         #csv and txt are placed in a typle
         if filename.endswith((".csv", ".txt")): 
             file.seek(0)
-            logger.info("File type check successful for file: %s, file type: %s", filename)
+            logger.info("File type check successful for file: %s", filename)
             return True
     except FileNotFoundError:
         logger.error("File not found for file: %s", filename)
