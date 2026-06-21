@@ -2,7 +2,7 @@ import csv
 import random
 from datetime import datetime, timedelta
 
-def generate_chaos_csv(filename="pressure_test.csv", num_rows=1000):
+def generate_chaos_csv(filename="pressure_test10k.csv", num_rows=10000):
     headers = ["Transaction_ID", "Date", "Customer_Name", "Item_Purchased", "Quantity", "Unit_Price", "Total_Amount", "Status"]
     
     # We will force a duplicate ID to test your batch fallback logic

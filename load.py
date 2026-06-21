@@ -4,7 +4,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, timezone
 import logging
 import pandas as pd
-import json
 
 Base = declarative_base()
 logging.basicConfig(filename="pipeline.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")

@@ -15,7 +15,6 @@ def file_type_check(file, filename):
     try:
         
         #if headers are missing, pure returns txt
-        header = file.read(2048)
         #read the first few bytes
         filename = filename.lower() 
         #csv and txt are placed in a typle
