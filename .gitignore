@@ -1,0 +1,13 @@
+# Virtual Environment
+venv/
+
+# Databases
+*.db
+*.sqlite
+
+# Logs
+*.log
+pipeline.log
+
+# Bad data outputs
+bad_data_*.csv
