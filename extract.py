@@ -1,1 +1,0 @@
-#extracts data from payload and returns it as a dict/pandas dataframe 
